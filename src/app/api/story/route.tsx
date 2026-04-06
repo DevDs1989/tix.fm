@@ -2,336 +2,297 @@ import { ImageResponse } from "next/og";
 
 export const runtime = "edge";
 
-type LastFmTopArtist = {
+type Artist = {
   name: string;
-  playcount: string;
+  playcount: string | number;
+  topTracks?: string[];
+  image?: string | null;
 };
 
-type LastFmTopTrack = {
-  name: string;
-  playcount: string;
-  artist?: { name?: string };
-};
+async function getData(username: string): Promise<Artist[]> {
+  const apiKey = process.env.LASTFM_API_KEY;
+  if (!apiKey) throw new Error("Missing LASTFM_API_KEY");
 
-async function getJson<T>(url: string): Promise<T> {
-  const res = await fetch(url, { cache: "no-store" });
-  if (!res.ok) throw new Error(`Request failed: ${res.status}`);
-  return res.json() as Promise<T>;
-}
+  const res = await fetch(
+    `https://ws.audioscrobbler.com/2.0/?method=user.gettopartists&user=${encodeURIComponent(
+      username,
+    )}&api_key=${apiKey}&format=json&limit=5`,
+    { cache: "no-store" },
+  );
 
-async function getUserData(username: string) {
-  const API_KEY = process.env.LASTFM_API_KEY;
-  if (!API_KEY) throw new Error("LASTFM_API_KEY is not set");
+  if (!res.ok) throw new Error("Failed to fetch top artists");
+  const data = await res.json();
 
-  const base = "https://ws.audioscrobbler.com/2.0/";
+  const baseArtists = Array.isArray(data?.topartists?.artist)
+    ? data.topartists.artist
+    : [];
 
-  const [userInfoRes, topArtistsRes, topTracksRes] = await Promise.all([
-    getJson<any>(
-      `${base}?method=user.getinfo&user=${encodeURIComponent(username)}&api_key=${API_KEY}&format=json`,
-    ),
-    getJson<any>(
-      `${base}?method=user.gettopartists&user=${encodeURIComponent(username)}&api_key=${API_KEY}&format=json&period=7day&limit=5`,
-    ),
-    getJson<any>(
-      `${base}?method=user.gettoptracks&user=${encodeURIComponent(username)}&api_key=${API_KEY}&format=json&period=7day&limit=5`,
-    ),
-  ]);
+  const artists: Artist[] = await Promise.all(
+    baseArtists.slice(0, 5).map(async (artist: any) => {
+      const artistName = artist?.name ?? "";
+      let topTracks: string[] = [];
 
-  const user = userInfoRes?.user;
-  const topArtists: LastFmTopArtist[] = topArtistsRes?.topartists?.artist ?? [];
-  const topTracks: LastFmTopTrack[] = topTracksRes?.toptracks?.track ?? [];
+      try {
+        const tracksRes = await fetch(
+          `https://ws.audioscrobbler.com/2.0/?method=artist.gettoptracks&artist=${encodeURIComponent(
+            artistName,
+          )}&api_key=${apiKey}&format=json&limit=4`,
+          { cache: "no-store" },
+        );
+        const tracksData = await tracksRes.json();
+        const tracksArray = Array.isArray(tracksData?.toptracks?.track)
+          ? tracksData.toptracks.track
+          : [];
+        topTracks = tracksArray
+          .slice(0, 4)
+          .map((t: any) => t?.name)
+          .filter(Boolean);
+      } catch {
+        topTracks = [];
+      }
 
-  return {
-    username,
-    realname: user?.realname || "",
-    country: user?.country || "",
-    playcount: user?.playcount || "0",
-    image:
-      user?.image?.find((i: any) => i.size === "extralarge")?.["#text"] ||
-      user?.image?.[user?.image?.length - 1]?.["#text"] ||
-      "",
-    topArtists,
-    topTracks,
-  };
-}
+      const image =
+        artist?.image?.find((i: any) => i.size === "extralarge")?.["#text"] ||
+        artist?.image?.[artist?.image?.length - 1]?.["#text"] ||
+        null;
 
-function formatNum(n: string) {
-  const num = Number(n || 0);
-  return Number.isFinite(num) ? num.toLocaleString() : "0";
+      return {
+        name: artistName,
+        playcount: artist?.playcount ?? "0",
+        topTracks,
+        image,
+      };
+    }),
+  );
+
+  return artists;
 }
 
 export async function GET(req: Request) {
   try {
     const { searchParams } = new URL(req.url);
     const username = searchParams.get("username")?.trim();
-
     if (!username) {
-      return new Response(
-        JSON.stringify({ error: "Missing username query param" }),
-        {
-          status: 400,
-          headers: { "Content-Type": "application/json" },
-        },
-      );
+      return new Response(JSON.stringify({ error: "Missing username" }), {
+        status: 400,
+        headers: { "Content-Type": "application/json" },
+      });
     }
 
-    const data = await getUserData(username);
-
-    // Optional avatar fetch -> ArrayBuffer for next/og
-    let avatarBuffer: ArrayBuffer | null = null;
-    if (data.image) {
-      try {
-        const avatarRes = await fetch(data.image, { cache: "no-store" });
-        if (avatarRes.ok) avatarBuffer = await avatarRes.arrayBuffer();
-      } catch {
-        avatarBuffer = null;
-      }
-    }
+    const artists = await getData(username);
+    const totalScrobbles = artists.reduce(
+      (sum, a) => sum + (Number(a.playcount) || 0),
+      0,
+    );
 
     return new ImageResponse(
-      (
+      <div
+        style={{
+          width: "1080px",
+          height: "1920px",
+          display: "flex",
+          flexDirection: "column",
+          background: "#d9d6cf",
+          color: "#111",
+          padding: "56px",
+          fontFamily: "Arial, sans-serif",
+        }}
+      >
         <div
           style={{
-            width: "1080px",
-            height: "1920px",
             display: "flex",
             flexDirection: "column",
-            background: "#d9d6cf",
-            color: "#111111",
-            padding: "56px",
-            fontFamily: "Arial",
-            position: "relative",
+            borderBottom: "1px solid rgba(0,0,0,.3)",
+            paddingBottom: "24px",
+            marginBottom: "24px",
           }}
         >
-          {/* Top */}
           <div
             style={{
               display: "flex",
-              justifyContent: "space-between",
-              alignItems: "flex-start",
-              borderBottom: "2px solid rgba(0,0,0,0.35)",
-              paddingBottom: "26px",
+              fontSize: "20px",
+              letterSpacing: "2px",
+              textTransform: "uppercase",
+              opacity: 0.7,
             }}
           >
-            <div style={{ display: "flex", flexDirection: "column" }}>
-              <div
-                style={{
-                  fontSize: 28,
-                  letterSpacing: 4,
-                  textTransform: "uppercase",
-                  opacity: 0.7,
-                }}
-              >
-                tix.fm
-              </div>
-              <div
-                style={{
-                  marginTop: 8,
-                  fontSize: 88,
-                  lineHeight: 1,
-                  fontWeight: 800,
-                  textTransform: "uppercase",
-                }}
-              >
-                Weekly Story
-              </div>
-            </div>
-
-            <div
-              style={{
-                border: "2px solid rgba(0,0,0,0.45)",
-                padding: "10px 16px",
-                fontSize: 28,
-                fontWeight: 700,
-              }}
-            >
-              @{data.username}
-            </div>
+            Tix.fm
           </div>
-
-          {/* Profile block */}
           <div
             style={{
-              marginTop: 30,
-              border: "2px solid rgba(0,0,0,0.35)",
-              background: "#dfddd7",
               display: "flex",
-              padding: "24px",
-              gap: "22px",
-              alignItems: "center",
+              marginTop: "10px",
+              fontSize: "72px",
+              fontWeight: 900,
+              textTransform: "uppercase",
             }}
           >
+            {username}
+          </div>
+          <div
+            style={{
+              display: "flex",
+              marginTop: "8px",
+              fontSize: "28px",
+              opacity: 0.75,
+            }}
+          >
+            {totalScrobbles.toLocaleString()} scrobbles
+          </div>
+        </div>
+
+        <div style={{ display: "flex", flexDirection: "column", gap: "18px" }}>
+          {artists.map((artist, i) => (
             <div
+              key={`${artist.name}-${i}`}
               style={{
-                width: 150,
-                height: 150,
-                border: "2px solid rgba(0,0,0,0.4)",
-                background: "#cfcac0",
                 display: "flex",
+                minHeight: "230px",
+                border: "1px solid rgba(0,0,0,.35)",
+                background: "#dfddd7",
+                position: "relative",
                 overflow: "hidden",
               }}
             >
-              {avatarBuffer ? (
+              {artist.image ? (
                 <img
-                  src={avatarBuffer as any}
-                  alt="avatar"
-                  width={150}
-                  height={150}
-                  style={{ objectFit: "cover" }}
+                  src={artist.image}
+                  alt=""
+                  width={540}
+                  height={230}
+                  style={{
+                    position: "absolute",
+                    left: 0,
+                    top: 0,
+                    objectFit: "cover",
+                    opacity: 0.2,
+                    filter: "grayscale(100%) contrast(1.1)",
+                  }}
                 />
-              ) : (
+              ) : null}
+
+              <div
+                style={{
+                  display: "flex",
+                  width: "110px",
+                  borderRight: "1px solid rgba(0,0,0,.35)",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  fontSize: "52px",
+                  fontWeight: 900,
+                  zIndex: 2,
+                }}
+              >
+                №{i + 1}
+              </div>
+
+              <div
+                style={{
+                  display: "flex",
+                  flexDirection: "column",
+                  flex: 1,
+                  padding: "28px",
+                  zIndex: 2,
+                }}
+              >
                 <div
                   style={{
-                    width: "100%",
-                    height: "100%",
                     display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    fontSize: 44,
-                    fontWeight: 700,
+                    margin: 0,
+                    fontSize: "42px",
+                    fontWeight: 800,
+                    textTransform: "uppercase",
                   }}
                 >
-                  {data.username.slice(0, 1).toUpperCase()}
+                  {artist.name}
                 </div>
-              )}
-            </div>
+                <div
+                  style={{
+                    display: "flex",
+                    marginTop: "8px",
+                    fontSize: "18px",
+                    opacity: 0.75,
+                    textTransform: "uppercase",
+                  }}
+                >
+                  {Number(artist.playcount).toLocaleString()} plays
+                </div>
 
-            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-              <div style={{ fontSize: 44, fontWeight: 800 }}>@{data.username}</div>
-              <div style={{ fontSize: 28, opacity: 0.8 }}>
-                {data.realname || "Last.fm listener"}
-              </div>
-              <div style={{ fontSize: 24, opacity: 0.7 }}>
-                {data.country || "Unknown country"}
-              </div>
-              <div style={{ fontSize: 24, marginTop: 6 }}>
-                Total scrobbles: <b>{formatNum(data.playcount)}</b>
-              </div>
-            </div>
-          </div>
-
-          {/* Two columns */}
-          <div
-            style={{
-              marginTop: 28,
-              display: "flex",
-              gap: 24,
-              flex: 1,
-            }}
-          >
-            <div
-              style={{
-                flex: 1,
-                border: "2px solid rgba(0,0,0,0.35)",
-                background: "#dfddd7",
-                padding: 20,
-                display: "flex",
-                flexDirection: "column",
-              }}
-            >
-              <div
-                style={{
-                  fontSize: 34,
-                  fontWeight: 800,
-                  textTransform: "uppercase",
-                  marginBottom: 14,
-                }}
-              >
-                Top Artists
-              </div>
-
-              {data.topArtists.length ? (
-                data.topArtists.slice(0, 5).map((a, i) => (
+                <div
+                  style={{
+                    display: "flex",
+                    flexDirection: "column",
+                    marginTop: "18px",
+                    borderTop: "1px dashed rgba(0,0,0,.45)",
+                    paddingTop: "12px",
+                  }}
+                >
                   <div
-                    key={`${a.name}-${i}`}
                     style={{
                       display: "flex",
-                      justifyContent: "space-between",
-                      borderTop: "1px solid rgba(0,0,0,0.2)",
-                      padding: "14px 0",
-                      fontSize: 24,
+                      fontSize: "14px",
+                      textTransform: "uppercase",
+                      letterSpacing: "1px",
+                      opacity: 0.75,
+                      marginBottom: "6px",
                     }}
                   >
-                    <div style={{ maxWidth: "75%", overflow: "hidden" }}>
-                      {i + 1}. {a.name}
-                    </div>
-                    <div style={{ opacity: 0.75 }}>{formatNum(a.playcount)}</div>
+                    Top 4 Songs
                   </div>
-                ))
-              ) : (
-                <div style={{ fontSize: 24, opacity: 0.7 }}>No data</div>
-              )}
-            </div>
 
-            <div
-              style={{
-                flex: 1,
-                border: "2px solid rgba(0,0,0,0.35)",
-                background: "#dfddd7",
-                padding: 20,
-                display: "flex",
-                flexDirection: "column",
-              }}
-            >
-              <div
-                style={{
-                  fontSize: 34,
-                  fontWeight: 800,
-                  textTransform: "uppercase",
-                  marginBottom: 14,
-                }}
-              >
-                Top Tracks
-              </div>
-
-              {data.topTracks.length ? (
-                data.topTracks.slice(0, 5).map((t, i) => (
                   <div
-                    key={`${t.name}-${i}`}
                     style={{
                       display: "flex",
-                      flexDirection: "column",
-                      borderTop: "1px solid rgba(0,0,0,0.2)",
-                      padding: "12px 0",
+                      flexWrap: "wrap",
+                      gap: "6px 18px",
+                      fontSize: "24px",
+                      lineHeight: 1.25,
                     }}
                   >
-                    <div style={{ fontSize: 24 }}>
-                      {i + 1}. {t.name}
-                    </div>
-                    <div style={{ fontSize: 19, opacity: 0.72 }}>
-                      {t.artist?.name || "Unknown artist"} · {formatNum(t.playcount)}
-                    </div>
+                    {(artist.topTracks ?? []).slice(0, 4).map((track, idx) => (
+                      <div
+                        key={`${track}-${idx}`}
+                        style={{
+                          display: "flex",
+                          maxWidth: "400px",
+                          whiteSpace: "nowrap",
+                          overflow: "hidden",
+                          textOverflow: "ellipsis",
+                        }}
+                      >
+                        {track}
+                      </div>
+                    ))}
                   </div>
-                ))
-              ) : (
-                <div style={{ fontSize: 24, opacity: 0.7 }}>No data</div>
-              )}
-            </div>
-          </div>
+                </div>
+              </div>
 
-          {/* Footer */}
-          <div
-            style={{
-              marginTop: 18,
-              borderTop: "2px solid rgba(0,0,0,0.35)",
-              paddingTop: 14,
-              display: "flex",
-              justifyContent: "space-between",
-              fontSize: 22,
-              opacity: 0.8,
-            }}
-          >
-            <div>Generated by tix.fm</div>
-            <div>{new Date().toLocaleDateString("en-US")}</div>
-          </div>
+              <div
+                style={{
+                  display: "flex",
+                  width: "160px",
+                  borderLeft: "1px solid rgba(0,0,0,.35)",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  fontSize: "18px",
+                  letterSpacing: "3px",
+                  textTransform: "uppercase",
+                  fontWeight: 700,
+                  opacity: 0.85,
+                  zIndex: 2,
+                  writingMode: "vertical-rl",
+                  transform: "rotate(180deg)",
+                }}
+              >
+                Artist Ticket
+              </div>
+            </div>
+          ))}
         </div>
-      ),
-      {
-        width: 1080,
-        height: 1920,
-      },
+      </div>,
+      { width: 1080, height: 1920 },
     );
-  } catch (e: any) {
+  } catch (e) {
     return new Response(
       JSON.stringify({ error: "Failed to generate PNG", detail: String(e) }),
       { status: 500, headers: { "Content-Type": "application/json" } },

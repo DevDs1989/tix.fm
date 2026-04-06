@@ -1,12 +1,17 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
+import { toPng } from "html-to-image";
+import StoryRenderCard, { type Artist } from "@/components/StoryRenderCard";
 
 export default function HomePage() {
   const [username, setUsername] = useState("");
   const [loading, setLoading] = useState(false);
   const [pngUrl, setPngUrl] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [artists, setArtists] = useState<Artist[]>([]);
+
+  const captureRef = useRef<HTMLDivElement | null>(null);
 
   const handleFetch = async () => {
     if (!username.trim()) return;
@@ -18,19 +23,30 @@ export default function HomePage() {
 
     try {
       const res = await fetch(
-        `/api/story?username=${encodeURIComponent(username.trim())}`,
-        {
-          method: "GET",
-          cache: "no-store",
-        },
+        `/api/lastfm?username=${encodeURIComponent(username.trim())}`,
+        { cache: "no-store" },
       );
+      const data = await res.json();
+      if (!res.ok) throw new Error(data?.error || "Failed to fetch");
 
-      if (!res.ok) {
-        const msg = await res.text();
-        throw new Error(msg || "Failed to generate PNG");
-      }
+      const nextArtists = Array.isArray(data?.artists)
+        ? data.artists.slice(0, 5)
+        : [];
+      setArtists(nextArtists);
 
-      const blob = await res.blob();
+      // wait for hidden DOM render
+      await new Promise((r) => requestAnimationFrame(() => r(null)));
+
+      const node = captureRef.current;
+      if (!node) throw new Error("Capture node missing");
+
+      const dataUrl = await toPng(node, {
+        cacheBust: true,
+        pixelRatio: 2,
+        backgroundColor: "#d9d6cf",
+      });
+
+      const blob = await (await fetch(dataUrl)).blob();
       const objectUrl = URL.createObjectURL(blob);
       setPngUrl(objectUrl);
     } catch (e: any) {
@@ -51,7 +67,6 @@ export default function HomePage() {
   return (
     <main className="min-h-screen bg-[#d9d6cf] text-[#111]">
       <div className="mx-auto w-full max-w-6xl px-4 py-6 sm:px-6 sm:py-8 lg:px-10 lg:py-10">
-        {/* Header */}
         <header className="border-b border-black/30 pb-4 sm:pb-5">
           <p className="text-[11px] sm:text-xs tracking-[0.2em] uppercase opacity-70">
             Powered by Last.fm | Made by Dev
@@ -64,20 +79,8 @@ export default function HomePage() {
           </p>
         </header>
 
-        {/* Control card */}
-        <section className="mt-5 sm:mt-6 rounded-none border border-black/35 bg-[#dfddd7] p-4 sm:p-5 lg:p-6 relative overflow-hidden">
-          {/* subtle paper grain */}
-          <div
-            className="pointer-events-none absolute inset-0 opacity-10 mix-blend-multiply"
-            style={{
-              backgroundImage:
-                "radial-gradient(rgba(0,0,0,0.22) 0.6px, transparent 0.6px), radial-gradient(rgba(255,255,255,0.16) 0.6px, transparent 0.6px)",
-              backgroundPosition: "0 0, 1.5px 1.5px",
-              backgroundSize: "3px 3px, 3px 3px",
-            }}
-          />
-
-          <div className="relative z-10 grid gap-3 sm:gap-4 md:grid-cols-[1fr_auto] md:items-end">
+        <section className="mt-5 sm:mt-6 rounded-none border border-black/35 bg-[#dfddd7] p-4 sm:p-5 lg:p-6">
+          <div className="grid gap-3 sm:gap-4 md:grid-cols-[1fr_auto] md:items-end">
             <div>
               <label
                 htmlFor="username"
@@ -90,11 +93,9 @@ export default function HomePage() {
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && handleFetch()}
-                placeholder=""
-                className="h-11 sm:h-12 w-full border border-black/40 bg-[#e5e2db] px-3 sm:px-4 text-sm sm:text-base outline-none placeholder:text-black/45 focus:border-black/70"
+                className="h-11 sm:h-12 w-full border border-black/40 bg-[#e5e2db] px-3 sm:px-4"
               />
             </div>
-
             <button
               onClick={handleFetch}
               disabled={loading || !username.trim()}
@@ -103,27 +104,12 @@ export default function HomePage() {
               {loading ? "Generating..." : "Generate PNG"}
             </button>
           </div>
-
-          {error && (
-            <p className="relative z-10 mt-3 text-sm text-red-700">{error}</p>
-          )}
+          {error && <p className="mt-3 text-sm text-red-700">{error}</p>}
         </section>
 
-        {/* Output */}
         {pngUrl && (
-          <section className="mt-5 sm:mt-6 rounded-none border border-black/35 bg-[#dfddd7] p-3 sm:p-4 lg:p-5 relative overflow-hidden">
-            {/* subtle paper grain */}
-            <div
-              className="pointer-events-none absolute inset-0 opacity-10 mix-blend-multiply"
-              style={{
-                backgroundImage:
-                  "radial-gradient(rgba(0,0,0,0.22) 0.6px, transparent 0.6px), radial-gradient(rgba(255,255,255,0.16) 0.6px, transparent 0.6px)",
-                backgroundPosition: "0 0, 1.5px 1.5px",
-                backgroundSize: "3px 3px, 3px 3px",
-              }}
-            />
-
-            <div className="relative z-10 mb-3 sm:mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <section className="mt-5 sm:mt-6 rounded-none border border-black/35 bg-[#dfddd7] p-3 sm:p-4 lg:p-5">
+            <div className="mb-3 sm:mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <h2 className="text-base sm:text-lg font-extrabold uppercase tracking-wide">
                 PNG Generated
               </h2>
@@ -135,7 +121,7 @@ export default function HomePage() {
               </button>
             </div>
 
-            <div className="relative z-10 overflow-auto border border-black/35 bg-[#d9d6cf] p-2 sm:p-3">
+            <div className="overflow-auto border border-black/35 bg-[#d9d6cf] p-2 sm:p-3">
               <img
                 src={pngUrl}
                 alt="Generated Last.fm story"
@@ -144,6 +130,22 @@ export default function HomePage() {
             </div>
           </section>
         )}
+
+        {/* hidden capture surface */}
+        <div
+          style={{
+            position: "fixed",
+            left: -20000,
+            top: 0,
+            width: 1080,
+            height: 1920,
+            pointerEvents: "none",
+          }}
+        >
+          <div ref={captureRef}>
+            <StoryRenderCard username={username || "user"} artists={artists} />
+          </div>
+        </div>
       </div>
     </main>
   );
