@@ -1,12 +1,27 @@
 import { NextResponse } from "next/server";
-import puppeteer from "puppeteer";
+import puppeteer, { Browser } from "puppeteer";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
+const WIDTH = 1080;
+const HEIGHT = 1920;
+
+let browserPromise: Promise<Browser> | null = null;
+
+async function getBrowser() {
+  if (!browserPromise) {
+    browserPromise = puppeteer.launch({
+      headless: true,
+      args: ["--no-sandbox", "--disable-setuid-sandbox"],
+    });
+  }
+  return browserPromise;
+}
+
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
-  const username = searchParams.get("username");
+  const username = searchParams.get("username")?.trim();
 
   if (!username) {
     return NextResponse.json({ error: "Missing username" }, { status: 400 });
@@ -15,29 +30,29 @@ export async function GET(req: Request) {
   const base = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
   const targetUrl = `${base}/story-render?username=${encodeURIComponent(username)}`;
 
-  let browser: puppeteer.Browser | null = null;
-
   try {
-    browser = await puppeteer.launch({
-      headless: true,
-      args: ["--no-sandbox", "--disable-setuid-sandbox"],
-    });
-
+    const browser = await getBrowser();
     const page = await browser.newPage();
-    await page.setViewport({ width: 1080, height: 1920, deviceScaleFactor: 1 });
 
-    // helps prevent blocked resources in some envs
-    await page.setExtraHTTPHeaders({
-      "x-story-render": "1",
+    await page.setViewport({
+      width: WIDTH,
+      height: HEIGHT,
+      deviceScaleFactor: 1,
     });
 
-    await page.goto(targetUrl, { waitUntil: "networkidle0", timeout: 60000 });
+    // IMPORTANT: don't block image requests
+    await page.goto(targetUrl, { waitUntil: "networkidle2", timeout: 45000 });
+
+    // tiny settle
+    await new Promise((r) => setTimeout(r, 150));
 
     const png = await page.screenshot({
       type: "png",
       fullPage: false,
-      clip: { x: 0, y: 0, width: 1080, height: 1920 },
+      clip: { x: 0, y: 0, width: WIDTH, height: HEIGHT },
     });
+
+    await page.close();
 
     return new NextResponse(png, {
       headers: {
@@ -51,7 +66,5 @@ export async function GET(req: Request) {
       { error: "Failed to generate PNG", detail: String(e) },
       { status: 500 },
     );
-  } finally {
-    if (browser) await browser.close();
   }
 }

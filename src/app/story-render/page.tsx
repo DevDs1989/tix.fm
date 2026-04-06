@@ -42,7 +42,7 @@ export default async function StoryRenderPage({
         background: "#d9d6cf",
         color: "#111",
         padding: 56,
-        fontFamily: "Arial, sans-serif",
+        fontFamily: "Space Grotesk, sans-serif",
       }}
     >
       <header
@@ -60,7 +60,7 @@ export default async function StoryRenderPage({
             opacity: 0.7,
           }}
         >
-          Last.fm Story
+          Tix.fm
         </div>
         <h1
           style={{
@@ -73,7 +73,7 @@ export default async function StoryRenderPage({
           {username}
         </h1>
         <p style={{ marginTop: 8, fontSize: 28, opacity: 0.75 }}>
-          {totalScrobbles.toLocaleString()} scrobbles (top 5 total)
+          {totalScrobbles.toLocaleString()} scrobbles
         </p>
       </header>
 
@@ -110,6 +110,22 @@ export default async function StoryRenderPage({
               />
             ) : null}
 
+            {/* Grain texture overlay */}
+            <div
+              style={{
+                position: "absolute",
+                inset: 0,
+                zIndex: 1,
+                pointerEvents: "none",
+                opacity: 0.2,
+                backgroundImage:
+                  "radial-gradient(rgba(0,0,0,0.22) 0.6px, transparent 0.6px), radial-gradient(rgba(255,255,255,0.16) 0.6px, transparent 0.6px)",
+                backgroundPosition: "0 0, 1.5px 1.5px",
+                backgroundSize: "4px 4px, 4px 4px",
+                mixBlendMode: "multiply",
+              }}
+            />
+
             <div
               style={{
                 borderRight: "1px solid rgba(0,0,0,.35)",
@@ -117,13 +133,13 @@ export default async function StoryRenderPage({
                 placeItems: "center",
                 fontSize: 52,
                 fontWeight: 900,
-                zIndex: 1,
+                zIndex: 2,
               }}
             >
               №{i + 1}
             </div>
 
-            <div style={{ padding: 28, zIndex: 1 }}>
+            <div style={{ padding: 28, zIndex: 2 }}>
               <h2
                 style={{
                   margin: 0,
@@ -201,7 +217,7 @@ export default async function StoryRenderPage({
                 textTransform: "uppercase",
                 fontWeight: 700,
                 opacity: 0.85,
-                zIndex: 1,
+                zIndex: 2,
               }}
             >
               Artist Ticket

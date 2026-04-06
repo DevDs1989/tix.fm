@@ -13,6 +13,7 @@ export default function HomePage() {
 
     setLoading(true);
     setError(null);
+    if (pngUrl) URL.revokeObjectURL(pngUrl);
     setPngUrl(null);
 
     try {
@@ -41,7 +42,6 @@ export default function HomePage() {
 
   const handleDownload = () => {
     if (!pngUrl) return;
-
     const a = document.createElement("a");
     a.href = pngUrl;
     a.download = `${username || "lastfm"}-story.png`;
@@ -49,49 +49,97 @@ export default function HomePage() {
   };
 
   return (
-    <main className="min-h-screen bg-black text-white px-6 py-10">
-      <div className="mx-auto max-w-5xl">
-        <h1 className="text-2xl font-bold mb-6">Last.fm Story Generator</h1>
+    <main className="min-h-screen bg-[#d9d6cf] text-[#111]">
+      <div className="mx-auto w-full max-w-6xl px-4 py-6 sm:px-6 sm:py-8 lg:px-10 lg:py-10">
+        {/* Header */}
+        <header className="border-b border-black/30 pb-4 sm:pb-5">
+          <p className="text-[11px] sm:text-xs tracking-[0.2em] uppercase opacity-70">
+            Powered by Last.fm | Made by Dev
+          </p>
+          <h1 className="mt-2 text-3xl font-black uppercase leading-none sm:text-5xl lg:text-6xl">
+            Tix.fm
+          </h1>
+          <p className="mt-2 text-sm sm:text-base opacity-75">
+            Create your shareable music story card
+          </p>
+        </header>
 
-        {/* Input + Fetch */}
-        <div className="flex flex-wrap items-center gap-3">
-          <input
-            value={username}
-            onChange={(e) => setUsername(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && handleFetch()}
-            placeholder="Enter Last.fm username"
-            className="h-11 w-full max-w-sm rounded-md border border-zinc-700 bg-zinc-900 px-4 text-sm outline-none focus:border-zinc-500"
+        {/* Control card */}
+        <section className="mt-5 sm:mt-6 rounded-none border border-black/35 bg-[#dfddd7] p-4 sm:p-5 lg:p-6 relative overflow-hidden">
+          {/* subtle paper grain */}
+          <div
+            className="pointer-events-none absolute inset-0 opacity-10 mix-blend-multiply"
+            style={{
+              backgroundImage:
+                "radial-gradient(rgba(0,0,0,0.22) 0.6px, transparent 0.6px), radial-gradient(rgba(255,255,255,0.16) 0.6px, transparent 0.6px)",
+              backgroundPosition: "0 0, 1.5px 1.5px",
+              backgroundSize: "3px 3px, 3px 3px",
+            }}
           />
-          <button
-            onClick={handleFetch}
-            disabled={loading || !username.trim()}
-            className="h-11 rounded-md bg-white px-5 text-sm font-semibold text-black disabled:opacity-50"
-          >
-            {loading ? "Generating PNG..." : "Fetch"}
-          </button>
-        </div>
 
-        {/* Error */}
-        {error && <p className="mt-4 text-sm text-red-400">{error}</p>}
+          <div className="relative z-10 grid gap-3 sm:gap-4 md:grid-cols-[1fr_auto] md:items-end">
+            <div>
+              <label
+                htmlFor="username"
+                className="mb-2 block text-[11px] sm:text-xs uppercase tracking-[0.18em] opacity-70"
+              >
+                Last.fm Username
+              </label>
+              <input
+                id="username"
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && handleFetch()}
+                placeholder=""
+                className="h-11 sm:h-12 w-full border border-black/40 bg-[#e5e2db] px-3 sm:px-4 text-sm sm:text-base outline-none placeholder:text-black/45 focus:border-black/70"
+              />
+            </div>
 
-        {/* Generated Segment */}
+            <button
+              onClick={handleFetch}
+              disabled={loading || !username.trim()}
+              className="h-11 sm:h-12 w-full md:w-auto border border-black/50 bg-black px-5 sm:px-6 text-sm font-bold uppercase tracking-wide text-[#dfddd7] disabled:opacity-50"
+            >
+              {loading ? "Generating..." : "Generate PNG"}
+            </button>
+          </div>
+
+          {error && (
+            <p className="relative z-10 mt-3 text-sm text-red-700">{error}</p>
+          )}
+        </section>
+
+        {/* Output */}
         {pngUrl && (
-          <section className="mt-8 rounded-xl border border-zinc-800 bg-zinc-950 p-5">
-            <div className="mb-4 flex items-center justify-between gap-3">
-              <h2 className="text-lg font-semibold">PNG Generated</h2>
+          <section className="mt-5 sm:mt-6 rounded-none border border-black/35 bg-[#dfddd7] p-3 sm:p-4 lg:p-5 relative overflow-hidden">
+            {/* subtle paper grain */}
+            <div
+              className="pointer-events-none absolute inset-0 opacity-10 mix-blend-multiply"
+              style={{
+                backgroundImage:
+                  "radial-gradient(rgba(0,0,0,0.22) 0.6px, transparent 0.6px), radial-gradient(rgba(255,255,255,0.16) 0.6px, transparent 0.6px)",
+                backgroundPosition: "0 0, 1.5px 1.5px",
+                backgroundSize: "3px 3px, 3px 3px",
+              }}
+            />
+
+            <div className="relative z-10 mb-3 sm:mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <h2 className="text-base sm:text-lg font-extrabold uppercase tracking-wide">
+                PNG Generated
+              </h2>
               <button
                 onClick={handleDownload}
-                className="h-10 rounded-md bg-emerald-400 px-4 text-sm font-semibold text-black"
+                className="h-10 sm:h-11 w-full sm:w-auto border border-black/50 bg-black px-4 sm:px-5 text-sm font-bold uppercase tracking-wide text-[#dfddd7]"
               >
                 Download PNG
               </button>
             </div>
 
-            <div className="overflow-auto rounded-lg border border-zinc-800 bg-black p-3">
+            <div className="relative z-10 overflow-auto border border-black/35 bg-[#d9d6cf] p-2 sm:p-3">
               <img
                 src={pngUrl}
                 alt="Generated Last.fm story"
-                className="mx-auto h-auto max-w-full rounded"
+                className="mx-auto block h-auto w-full max-w-[420px] sm:max-w-[520px] lg:max-w-[620px]"
               />
             </div>
           </section>
