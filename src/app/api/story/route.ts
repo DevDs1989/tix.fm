@@ -46,15 +46,17 @@ export async function GET(req: Request) {
     // tiny settle
     await new Promise((r) => setTimeout(r, 150));
 
-    const png = await page.screenshot({
+    const png = (await page.screenshot({
       type: "png",
       fullPage: false,
       clip: { x: 0, y: 0, width: WIDTH, height: HEIGHT },
-    });
+    })) as Uint8Array;
 
     await page.close();
 
-    return new NextResponse(png, {
+    const body = Buffer.from(png);
+
+    return new NextResponse(body, {
       headers: {
         "Content-Type": "image/png",
         "Cache-Control": "no-store",
