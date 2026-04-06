@@ -9,12 +9,13 @@
     "lint": "eslint"
   },
   "dependencies": {
+    "@sparticuz/chromium": "^143.0.4",
     "album-art": "^4.0.0",
     "axios": "^1.14.0",
     "html-to-image": "^1.11.13",
     "next": "16.2.2",
     "next-auth": "^4.24.13",
-    "puppeteer": "^24.40.0",
+    "puppeteer-core": "^24.40.0",
     "react": "19.2.4",
     "react-dom": "19.2.4"
   },

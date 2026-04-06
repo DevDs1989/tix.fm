@@ -1,71 +1,52 @@
 import { NextResponse } from "next/server";
-import puppeteer, { Browser } from "puppeteer";
+import chromium from "@sparticuz/chromium";
+import puppeteer from "puppeteer-core";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-
-const WIDTH = 1080;
-const HEIGHT = 1920;
-
-let browserPromise: Promise<Browser> | null = null;
-
-async function getBrowser() {
-  if (!browserPromise) {
-    browserPromise = puppeteer.launch({
-      headless: true,
-      args: ["--no-sandbox", "--disable-setuid-sandbox"],
-    });
-  }
-  return browserPromise;
-}
+export const maxDuration = 60;
 
 export async function GET(req: Request) {
-  const { searchParams } = new URL(req.url);
-  const username = searchParams.get("username")?.trim();
-
-  if (!username) {
-    return NextResponse.json({ error: "Missing username" }, { status: 400 });
-  }
-
-  const base = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
-  const targetUrl = `${base}/story-render?username=${encodeURIComponent(username)}`;
+  let browser: Awaited<ReturnType<typeof puppeteer.launch>> | null = null;
 
   try {
-    const browser = await getBrowser();
-    const page = await browser.newPage();
+    const { searchParams } = new URL(req.url);
+    const username = searchParams.get("username");
+    if (!username) {
+      return NextResponse.json({ error: "Missing username" }, { status: 400 });
+    }
 
-    await page.setViewport({
-      width: WIDTH,
-      height: HEIGHT,
-      deviceScaleFactor: 1,
+    browser = await puppeteer.launch({
+      args: chromium.args,
+      defaultViewport: { width: 1080, height: 1920 },
+      executablePath: await chromium.executablePath(),
+      headless: true,
     });
 
-    // IMPORTANT: don't block image requests
-    await page.goto(targetUrl, { waitUntil: "networkidle2", timeout: 45000 });
-
-    // tiny settle
-    await new Promise((r) => setTimeout(r, 150));
+    const page = await browser.newPage();
+    await page.goto(
+      `${process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000"}/story-render?username=${encodeURIComponent(username)}`,
+      { waitUntil: "networkidle0" },
+    );
 
     const png = (await page.screenshot({
       type: "png",
-      fullPage: false,
-      clip: { x: 0, y: 0, width: WIDTH, height: HEIGHT },
+      clip: { x: 0, y: 0, width: 1080, height: 1920 },
     })) as Uint8Array;
 
     await page.close();
+    await browser.close();
 
-    const body = Buffer.from(png);
-
-    return new NextResponse(body, {
+    return new NextResponse(Buffer.from(png), {
       headers: {
         "Content-Type": "image/png",
         "Cache-Control": "no-store",
-        "Content-Disposition": `inline; filename="${username}-story.png"`,
       },
     });
-  } catch (e) {
+  } catch (err: any) {
+    if (browser) await browser.close();
     return NextResponse.json(
-      { error: "Failed to generate PNG", detail: String(e) },
+      { error: "Failed to generate PNG", detail: String(err) },
       { status: 500 },
     );
   }
