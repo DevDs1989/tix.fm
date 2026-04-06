@@ -101,7 +101,7 @@ export default function HomePage() {
               disabled={loading || !username.trim()}
               className="h-11 sm:h-12 w-full md:w-auto border border-black/50 bg-black px-5 sm:px-6 text-sm font-bold uppercase tracking-wide text-[#dfddd7] disabled:opacity-50"
             >
-              {loading ? "Generating..." : "Generate PNG"}
+              {loading ? "Generating..." : "Generate"}
             </button>
           </div>
           {error && <p className="mt-3 text-sm text-red-700">{error}</p>}
@@ -111,13 +111,13 @@ export default function HomePage() {
           <section className="mt-5 sm:mt-6 rounded-none border border-black/35 bg-[#dfddd7] p-3 sm:p-4 lg:p-5">
             <div className="mb-3 sm:mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <h2 className="text-base sm:text-lg font-extrabold uppercase tracking-wide">
-                PNG Generated
+                Image Generated
               </h2>
               <button
                 onClick={handleDownload}
                 className="h-10 sm:h-11 w-full sm:w-auto border border-black/50 bg-black px-4 sm:px-5 text-sm font-bold uppercase tracking-wide text-[#dfddd7]"
               >
-                Download PNG
+                Download Image
               </button>
             </div>
 
