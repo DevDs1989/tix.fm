@@ -9,7 +9,7 @@
     "lint": "eslint"
   },
   "dependencies": {
-    "@sparticuz/chromium": "^143.0.4",
+    "@sparticuz/chromium-min": "^143.0.4",
     "album-art": "^4.0.0",
     "axios": "^1.14.0",
     "html-to-image": "^1.11.13",

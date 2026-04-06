@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import chromium from "@sparticuz/chromium";
+import chromium from "@sparticuz/chromium-min";
 import puppeteer from "puppeteer-core";
 
 export const runtime = "nodejs";
@@ -16,16 +16,22 @@ export async function GET(req: Request) {
       return NextResponse.json({ error: "Missing username" }, { status: 400 });
     }
 
+    const executablePath = await chromium.executablePath(
+      "https://github.com/Sparticuz/chromium/releases/download/v138.0.1/chromium-v138.0.1-pack.tar",
+    );
+
     browser = await puppeteer.launch({
       args: chromium.args,
-      defaultViewport: { width: 1080, height: 1920 },
-      executablePath: await chromium.executablePath(),
+      executablePath,
       headless: true,
+      defaultViewport: { width: 1080, height: 1920 },
     });
 
     const page = await browser.newPage();
+    const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
+
     await page.goto(
-      `${process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000"}/story-render?username=${encodeURIComponent(username)}`,
+      `${baseUrl}/story-render?username=${encodeURIComponent(username)}`,
       { waitUntil: "networkidle0" },
     );
 
