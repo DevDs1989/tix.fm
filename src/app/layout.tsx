@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import Providers from "@/components/Providers";
 import "./globals.css";
 
 const siteUrl =
@@ -64,9 +63,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body>
-        <Providers>{children}</Providers>
-      </body>
+      <body>{children}</body>
     </html>
   );
 }
