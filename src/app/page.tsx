@@ -4,8 +4,18 @@ import { useRef, useState } from "react";
 import { toPng } from "html-to-image";
 import StoryRenderCard, { type Artist } from "@/components/StoryRenderCard";
 
+const PERIODS = [
+  { label: "7 Days", value: "7day" },
+  { label: "1 Month", value: "1month" },
+  { label: "3 Months", value: "3month" },
+  { label: "6 Months", value: "6month" },
+  { label: "1 Year", value: "12month" },
+  { label: "All Time", value: "overall" },
+];
+
 export default function HomePage() {
   const [username, setUsername] = useState("");
+  const [period, setPeriod] = useState("1month");
   const [loading, setLoading] = useState(false);
   const [pngUrl, setPngUrl] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -23,7 +33,7 @@ export default function HomePage() {
 
     try {
       const res = await fetch(
-        `/api/lastfm?username=${encodeURIComponent(username.trim())}`,
+        `/api/lastfm?username=${encodeURIComponent(username.trim())}&period=${period}`,
         { cache: "no-store" },
       );
       const data = await res.json();
@@ -34,7 +44,6 @@ export default function HomePage() {
         : [];
       setArtists(nextArtists);
 
-      // wait for hidden DOM render
       await new Promise((r) => requestAnimationFrame(() => r(null)));
 
       const node = captureRef.current;
@@ -75,7 +84,7 @@ export default function HomePage() {
             Tix.fm
           </h1>
           <p className="mt-2 text-sm sm:text-base opacity-75">
-            Create your shareable music story card
+            Share your music taste
           </p>
         </header>
 
@@ -104,6 +113,23 @@ export default function HomePage() {
               {loading ? "Generating..." : "Generate"}
             </button>
           </div>
+
+          <div className="mt-3 flex flex-wrap gap-2">
+            {PERIODS.map((p) => (
+              <button
+                key={p.value}
+                onClick={() => setPeriod(p.value)}
+                className={`border px-3 py-1 text-xs font-bold uppercase tracking-wide transition-colors ${
+                  period === p.value
+                    ? "border-black bg-black text-[#dfddd7]"
+                    : "border-black/40 bg-transparent text-[#111] opacity-60 hover:opacity-100"
+                }`}
+              >
+                {p.label}
+              </button>
+            ))}
+          </div>
+
           {error && <p className="mt-3 text-sm text-red-700">{error}</p>}
         </section>
 

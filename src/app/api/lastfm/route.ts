@@ -12,10 +12,20 @@ async function getArtistImage(artistName: string) {
   }
 }
 
+const VALID_PERIODS = [
+  "7day",
+  "1month",
+  "3month",
+  "6month",
+  "12month",
+  "overall",
+];
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
   const username = searchParams.get("username");
-
+  const period = VALID_PERIODS.includes(searchParams.get("period") ?? "")
+    ? searchParams.get("period")!
+    : "1month";
   if (!username) {
     return NextResponse.json({ error: "Missing username" }, { status: 400 });
   }
@@ -31,7 +41,7 @@ export async function GET(req: Request) {
     const topArtistsRes = await fetch(
       `https://ws.audioscrobbler.com/2.0/?method=user.gettopartists&user=${encodeURIComponent(
         username,
-      )}&api_key=${API_KEY}&format=json&limit=5`,
+      )}&period=${period}&api_key=${API_KEY}&format=json&limit=5`,
       { cache: "no-store" },
     );
     const topArtistsData = await topArtistsRes.json();
@@ -46,7 +56,7 @@ export async function GET(req: Request) {
     const userTopTracksRes = await fetch(
       `https://ws.audioscrobbler.com/2.0/?method=user.gettoptracks&user=${encodeURIComponent(
         username,
-      )}&api_key=${API_KEY}&format=json&limit=200`,
+      )}&api_key=${API_KEY}&format=json&limit=200&period=${period}`,
       { cache: "no-store" },
     );
     const userTopTracksData = await userTopTracksRes.json();
