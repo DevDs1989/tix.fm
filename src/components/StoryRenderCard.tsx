@@ -14,10 +14,10 @@ export default function StoryRenderCard({
   username: string;
   artists: Artist[];
 }) {
-  const totalScrobbles = artists.reduce(
-    (sum, a) => sum + (Number(a.playcount) || 0),
-    0,
-  );
+  // const totalScrobbles = artists.reduce(
+  //   (sum, a) => sum + (Number(a.playcount) || 0),
+  //   0,
+  // );
 
   return (
     <main
